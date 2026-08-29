@@ -8,19 +8,6 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# ---- 依赖：Dear ImGui + GLFW（首次联网自动拉取；imgui 自带 OpenGL loader）----
-include(FetchContent)
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(imgui
-  GIT_REPOSITORY https://github.com/ocornut/imgui.git
-  GIT_TAG v1.90.9)
-FetchContent_Declare(glfw
-  GIT_REPOSITORY https://github.com/glfw/glfw.git
-  GIT_TAG 3.4)
-FetchContent_MakeAvailable(imgui glfw)
-
 # ---- 共享核心 ----
 set(SHARED_SRC
   ${CMAKE_CURRENT_SOURCE_DIR}/../common/reliable_udp.cpp
@@ -33,22 +20,13 @@ if(USE_UNICORN AND NOT UNICORN_ROOT)
   message(FATAL_ERROR "请设置 -DUNICORN_ROOT=<uncorn目录> 或关闭 -DUSE_UNICORN=OFF")
 endif()
 
-add_executable(desktop
+# 原生 Win32 标准控件程序（去 ImGui/GLFW，无第三方 GUI 依赖）。
+add_executable(desktop WIN32
   main.cpp
-  ${SHARED_SRC}
-  ${imgui_SOURCE_DIR}/imgui.cpp
-  ${imgui_SOURCE_DIR}/imgui_draw.cpp
-  ${imgui_SOURCE_DIR}/imgui_tables.cpp
-  ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-  ${imgui_SOURCE_DIR}/imgui_demo.cpp
-  ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
-  ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)
+  ${SHARED_SRC})
 
 target_include_directories(desktop PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}/../common
-  ${imgui_SOURCE_DIR}
-  ${imgui_SOURCE_DIR}/backends)
-target_link_libraries(desktop PRIVATE glfw)
+  ${CMAKE_CURRENT_SOURCE_DIR}/../common)
 
 if(USE_UNICORN)
   target_compile_definitions(desktop PRIVATE USE_UNICORN)
@@ -62,9 +40,7 @@ endif()
 
 # 平台链接
 if(WIN32)
-  target_link_libraries(desktop PRIVATE opengl32 ws2_32)
-elseif(UNIX AND NOT APPLE)
-  target_link_libraries(desktop PRIVATE Threads::Threads)
-  find_package(Threads REQUIRED)
-  target_link_libraries(desktop PRIVATE ${CMAKE_DL_LIBS})
+  target_link_libraries(desktop PRIVATE ws2_32 user32 gdi32 comctl32)
+else()
+  message(FATAL_ERROR "原生 Win32 程序仅支持 Windows，本机请用支持的目标构建。")
 endif()

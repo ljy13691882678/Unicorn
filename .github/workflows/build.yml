@@ -19,7 +19,7 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: 配置 CMake（首次会联网拉取 Dear ImGui + GLFW）
+      - name: 配置 CMake（原生 Win32，无第三方 GUI 依赖，无需联网）
         run: cmake -S imgui_app/desktop -B imgui_app/desktop/build -DCMAKE_BUILD_TYPE=Release
 
       - name: 编译

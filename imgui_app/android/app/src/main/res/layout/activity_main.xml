@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="14dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="电脑 IP："
+            android:textStyle="bold" />
+        <EditText
+            android:id="@+id/etIp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="192.168.1.100"
+            android:inputType="textNoSuggestions" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="端口："
+            android:textStyle="bold" />
+        <EditText
+            android:id="@+id/etPort"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="number" />
+
+        <CheckBox
+            android:id="@+id/cbRoot"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="使用 root 权限获取数据" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="root 要读取的进程 PID / 内存地址 / 长度(字节)："
+            android:textStyle="bold" />
+        <EditText
+            android:id="@+id/etPid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="PID（留空则用下方命令）" />
+        <EditText
+            android:id="@+id/etAddr"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="内存地址（十六进制，如 0x1000）" />
+        <EditText
+            android:id="@+id/etLen"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="读取长度（字节）" />
+
+        <Button
+            android:id="@+id/btnReadAndSend"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="root 读取内存并发送到电脑" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <Button
+                android:id="@+id/btnSendSample"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="发送示例" />
+            <Button
+                android:id="@+id/btnRootCmd"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="执行root命令" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="显示框（日志 / 结果）："
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/tvLog"
+            android:layout_width="match_parent"
+            android:layout_height="360dp"
+            android:background="#EEEEEE"
+            android:padding="8dp"
+            android:textIsSelectable="true"
+            android:typeface="monospace"
+            android:scrollbars="vertical" />
+    </LinearLayout>
+</ScrollView>
