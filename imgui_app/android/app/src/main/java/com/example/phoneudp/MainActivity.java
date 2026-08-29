@@ -93,9 +93,12 @@ public class MainActivity extends Activity {
 
     private void sendSample() {
         if (sending) { toast("正在发送"); return; }
-        byte[] blob = new byte[]{0x00,0x1c,0x00,0x91, 0x00,0x7c,0x00,0x9b,
-                0x21,0x00,0xa0,0xd2, 0x20,0x00,0x00,0xf9, 0xc0,0x03,0x5f,0xd6};
-        appendLog("发送示例 blob %d 字节" .formatted(blob.length));
+        byte[] blob = new byte[]{(byte)0x00,(byte)0x1c,(byte)0x00,(byte)0x91,
+                (byte)0x00,(byte)0x7c,(byte)0x00,(byte)0x9b,
+                (byte)0x21,(byte)0x00,(byte)0xa0,(byte)0xd2,
+                (byte)0x20,(byte)0x00,(byte)0x00,(byte)0xf9,
+                (byte)0xc0,(byte)0x03,(byte)0x5f,(byte)0xd6};
+        appendLog("发送示例 blob " + blob.length + " 字节");
         new Thread(() -> doSend(blob)).start();
     }
 
