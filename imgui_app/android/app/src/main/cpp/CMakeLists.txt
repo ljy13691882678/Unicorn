@@ -17,7 +17,8 @@ target_include_directories(native_app_glue PUBLIC
 
 # ---- Dear ImGui（vendored：android/third_party/imgui）----
 set(IMGUI ${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/imgui)
-set(COMMON ${CMAKE_CURRENT_SOURCE_DIR}/../../../../common)
+# common 在仓库根的 imgui_app/common（本文件在 android/app/src/main/cpp，需上 5 层）
+set(COMMON ${CMAKE_CURRENT_SOURCE_DIR}/../../../../../common)
 add_library(imgui STATIC
     ${IMGUI}/imgui.cpp
     ${IMGUI}/imgui_draw.cpp
