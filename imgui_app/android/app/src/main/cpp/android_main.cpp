@@ -21,7 +21,7 @@
 #include <vector>
 #include <chrono>
 #include <signal.h>
-#include <execinfo.h>
+#include <unwind.h>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -32,20 +32,28 @@
 // 捕获 SIGSEGV/SIGABRT/SIGBUS，把调用栈打到 logcat（tag=phone-udp）并写入
 // /data/data/<包名>/files/crash.txt。有 root 时可直接 cat 该文件，或用其定位。
 static const char* gCrashFilePath = "/data/data/com.example.phoneudp/files/crash.txt";
+
+// Android bionic 没有 backtrace()，用 NDK 的 _Unwind_Backtrace（32/64 位均可用）。
+static _Unwind_Reason_Code trace_cb(struct _Unwind_Context* ctx, void* arg) {
+    void* ip = reinterpret_cast<void*>(_Unwind_GetIP(ctx));
+    if (ip) { reinterpret_cast<std::vector<void*>*>(arg)->push_back(ip); }
+    return _URC_NO_REASON;
+}
+
 static void crash_handler(int sig) {
-    void* frames[64];
-    int n = backtrace(frames, 64);
+    std::vector<void*> frames;
+    _Unwind_Backtrace(trace_cb, &frames);
     __android_log_print(ANDROID_LOG_FATAL, "phone-udp",
-                        "== 崩溃 signal=%d (%s), frames=%d ==", sig,
-                        sig == SIGSEGV ? "SIGSEGV" : sig == SIGABRT ? "SIGABRT" : "SIGBUS", n);
+                        "== 崩溃 signal=%d (%s), frames=%zu ==", sig,
+                        sig == SIGSEGV ? "SIGSEGV" : sig == SIGABRT ? "SIGABRT" : "SIGBUS", frames.size());
     char line[64];
     int fd = open(gCrashFilePath, O_CREAT | O_WRONLY | O_TRUNC, 0644);
-    for (int i = 0; i < n; ++i) {
-        snprintf(line, sizeof(line), "  #%02d %p\n", i, frames[i]);
+    for (size_t i = 0; i < frames.size(); ++i) {
+        snprintf(line, sizeof(line), "  #%02zu %p\n", i, frames[i]);
         __android_log_print(ANDROID_LOG_FATAL, "phone-udp", "%s", line);
         if (fd >= 0) { write(fd, line, strlen(line)); }
     }
-    __android_log_print(ANDROID_LOG_FATAL, "phone-udp", "== 请将以上 #%02d... 栈发回 ==", 0);
+    __android_log_print(ANDROID_LOG_FATAL, "phone-udp", "== 请将以上 #00..#%zu 栈发回 ==", frames.size() - 1);
     if (fd >= 0) close(fd);
     _exit(128 + sig);
 }
