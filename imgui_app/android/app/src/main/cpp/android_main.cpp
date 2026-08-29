@@ -20,9 +20,35 @@
 #include <string>
 #include <vector>
 #include <chrono>
+#include <signal.h>
+#include <execinfo.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "phone-udp", __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "phone-udp", __VA_ARGS__)
+
+// ---- 进程内崩溃兜底 ----
+// 捕获 SIGSEGV/SIGABRT/SIGBUS，把调用栈打到 logcat（tag=phone-udp）并写入
+// /data/data/<包名>/files/crash.txt。有 root 时可直接 cat 该文件，或用其定位。
+static const char* gCrashFilePath = "/data/data/com.example.phoneudp/files/crash.txt";
+static void crash_handler(int sig) {
+    void* frames[64];
+    int n = backtrace(frames, 64);
+    __android_log_print(ANDROID_LOG_FATAL, "phone-udp",
+                        "== 崩溃 signal=%d (%s), frames=%d ==", sig,
+                        sig == SIGSEGV ? "SIGSEGV" : sig == SIGABRT ? "SIGABRT" : "SIGBUS", n);
+    char line[64];
+    int fd = open(gCrashFilePath, O_CREAT | O_WRONLY | O_TRUNC, 0644);
+    for (int i = 0; i < n; ++i) {
+        snprintf(line, sizeof(line), "  #%02d %p\n", i, frames[i]);
+        __android_log_print(ANDROID_LOG_FATAL, "phone-udp", "%s", line);
+        if (fd >= 0) { write(fd, line, strlen(line)); }
+    }
+    __android_log_print(ANDROID_LOG_FATAL, "phone-udp", "== 请将以上 #%02d... 栈发回 ==", 0);
+    if (fd >= 0) close(fd);
+    _exit(128 + sig);
+}
 
 // 示例 ARM64 机器码：add x0,#7 ; mul x0,x0 ; movz x1,#1<<16 ; str x0,[x1] ; ret
 static const uint8_t kSampleBlob[] = {
@@ -191,6 +217,11 @@ void android_main(struct android_app* app) {
     // Android 运行时按符号调用，代码里无人引用，若不加 app_dummy() 链接器会裁剪该
     // 静态库成员，导致 NativeActivity 缺少入口，App 一打开就闪退。
     app_dummy();
+
+    // 装崩溃兜底（越早越好）：崩溃时把调用栈打到 logcat + crash.txt
+    signal(SIGSEGV, crash_handler);
+    signal(SIGABRT, crash_handler);
+    signal(SIGBUS,  crash_handler);
 
     app->activity->vm->AttachCurrentThread(&app->activity->env, nullptr);
     gApp = app;
