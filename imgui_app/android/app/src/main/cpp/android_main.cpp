@@ -76,6 +76,7 @@ static struct {
     EGLConfig  config = 0;
     bool configured = false;
     bool imguiAndroidReady = false;
+    bool openglBackendReady = false;
     int width = 0, height = 0;
     int orientation = 0;
 
@@ -195,10 +196,16 @@ static void handleAppCmd(android_app* app, int32_t cmd) {
     switch (cmd) {
     case APP_CMD_INIT_WINDOW:
         if (app->window) {
-            init_gl();
+            if (!init_gl()) break;
             if (!g.imguiAndroidReady) {
                 ImGui_ImplAndroid_Init(app->window);
                 g.imguiAndroidReady = true;
+            }
+            // renderer 必须等 context 已 eglMakeCurrent 后才能初始化，
+            // 否则 glGetString(GL_VERSION) 拿到坏指针导致 ImGui_ImplOpenGL3_Init 空指针崩溃。
+            if (!g.openglBackendReady) {
+                ImGui_ImplOpenGL3_Init("#version 300 es");
+                g.openglBackendReady = true;
             }
             g.configured = true;
         }
@@ -239,7 +246,6 @@ void android_main(struct android_app* app) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
-    ImGui_ImplOpenGL3_Init("#version 300 es");
 
     logAppend("已就绪。请先运行电脑接收端并启动监听，输入电脑 IP 与端口后点「发送」。");
 
