@@ -1,0 +1,12 @@
+# 构建产物（CI 会在 runner 上重新生成）
+imgui_app/desktop/build/
+imgui_app/android/.gradle/
+imgui_app/android/**/build/
+imgui_app/android/local.properties
+common/selftest
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store

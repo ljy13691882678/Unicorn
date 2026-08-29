@@ -1,0 +1,57 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.example.phoneudp'
+    compileSdk 34
+    // CI 与本地统一 NDK 版本（GitHub Actions 会安装这个版本）
+    ndkVersion "25.2.9519653"
+
+    defaultConfig {
+        applicationId "com.example.phoneudp"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+        externalNativeBuild {
+            cmake {
+                cppFlags "-std=c++17"
+                arguments "-DANDROID_STL=c++_static"
+            }
+        }
+        ndk {
+            // 手机基本都是 ARM64；armeabi-v7a 兜底
+            abiFilters "arm64-v8a", "armeabi-v7a"
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
+
+    // Release 版签名（稳定版）
+    // keystore 提交在仓库；口令不作为明文入库，由 CI 的 Secret
+    //（ANDROID_KEYSTORE_PASSWORD）或本地环境变量 KS_PASSWORD 注入。
+    signingConfigs {
+        release {
+            storeFile file('release.keystore')
+            storePassword System.getenv('KS_PASSWORD')
+            keyAlias 'unicorn'
+            keyPassword System.getenv('KS_PASSWORD')
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+        }
+        debug {
+            debuggable true
+        }
+    }
+}

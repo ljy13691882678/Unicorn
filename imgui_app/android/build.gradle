@@ -1,0 +1,4 @@
+// 顶层构建文件：声明 Android Gradle Plugin 版本（在根 build.gradle 中启停）。
+plugins {
+    id 'com.android.application' version '8.2.2' apply false
+}
