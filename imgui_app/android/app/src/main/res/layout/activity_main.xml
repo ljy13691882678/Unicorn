@@ -37,12 +37,12 @@
             android:id="@+id/cbRoot"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="使用 root 权限获取数据" />
+            android:text="使用内核驱动读取数据（勾选后优先走 TimeDriver，驱动不可用才退回 root）" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="root 要读取的进程 PID / 内存地址 / 长度(字节)："
+            android:text="要读取的进程 PID / 内存地址 / 长度(字节)："
             android:textStyle="bold" />
         <EditText
             android:id="@+id/etPid"

@@ -1,5 +1,6 @@
 // jni_bridge.cpp - 手机端 JNI 桥接层（Java 主界面 <-> C++ 底层）
-// 通过 root 读取应用内存 + 用可靠 UDP 发送，复用 common/reliable_udp.cpp 核心。
+// 通过内核驱动 TimeDriver 读取应用内存（比 root 直接读更隐蔽，不易被反调试发现），
+// 再用可靠 UDP 发送，复用 common/reliable_udp.cpp 核心。
 #include <jni.h>
 
 #include <cstdint>
@@ -12,6 +13,7 @@
 #include <sstream>
 
 #include "reliable_udp.hpp"
+#include "time_driver.h"
 
 // ---- root 执行辅助：popen 走 su -c，读取完整输出 ----
 static std::vector<uint8_t> runRootBytes(const std::string& cmd) {
@@ -32,6 +34,35 @@ static std::string runRootText(const std::string& cmd) {
     return std::string(b.begin(), b.end());
 }
 
+// ---- 内核驱动 TimeDriver：懒初始化 + 访问守卫 ----
+// TIME_Driver 为驱动库提供的全局指针；Init() 会加载/连接内核驱动。
+// 读取失败返回 false，避免把失败误当"读到了0字节"。
+static std::mutex gDrvMtx;
+static bool gDrvInit = false;
+static bool gDrvOk   = false;
+
+static bool ensureDriver() {
+    std::lock_guard<std::mutex> lk(gDrvMtx);
+    if (gDrvInit) return gDrvOk;
+    gDrvInit = true;
+    if (!TIME_Driver) { gDrvOk = false; return false; }
+    gDrvOk = TIME_Driver->Init();
+    return gDrvOk;
+}
+
+// 通过内核驱动读取进程内存。需驱动已加载（手机已 root 且安装内核模块）。
+static std::vector<uint8_t> driverReadMem(pid_t pid, uintptr_t addr, size_t size) {
+    std::vector<uint8_t> out;
+    if (!ensureDriver()) return out;                 // 驱动不可用
+    out.resize(size ? size : 1);
+    if (!TIME_Driver->Read_Memory(pid, addr, out.data(), size)) {
+        out.clear();
+        return out;
+    }
+    if (size == 0) out.clear();
+    return out;
+}
+
 // ---- 可靠 UDP 发送（全局单例，Java 后台线程驱动 pump）----
 static std::mutex gSockMtx;
 static rudp::Sender gSender;
@@ -39,15 +70,23 @@ static volatile bool gSending = false;
 
 extern "C" {
 
-// 读取进程内存：用 root 运行 dd if=/proc/PID/mem，可指定偏移/长度
+// 读取进程内存：优先走内核驱动 TimeDriver，不用 root+dd（更隐蔽、不易被反调试打断）。
 JNIEXPORT jbyteArray JNICALL
 Java_com_example_phoneudp_MainActivity_nativeRootReadMem(JNIEnv* env, jobject,
                                                          jint pid, jlong addr, jlong len) {
-    char cmd[256];
-    snprintf(cmd, sizeof(cmd),
-             "dd if=/proc/%d/mem bs=1 skip=%lld count=%lld status=none",
-             (int)pid, (long long)addr, (long long)len);
-    auto bytes = runRootBytes(cmd);
+    std::vector<uint8_t> bytes;
+    if (len > 0) {
+        if (!ensureDriver()) {
+            // 驱动不可用时退回 root 的 dd（保证功能可用，但隐蔽性降低）
+            char cmd[256];
+            snprintf(cmd, sizeof(cmd),
+                     "dd if=/proc/%d/mem bs=1 skip=%lld count=%lld status=none",
+                     (int)pid, (long long)addr, (long long)len);
+            bytes = runRootBytes(cmd);
+        } else {
+            bytes = driverReadMem((pid_t)pid, (uintptr_t)addr, (size_t)len);
+        }
+    }
     jbyteArray arr = env->NewByteArray((jsize)bytes.size());
     if (arr && !bytes.empty())
         env->SetByteArrayRegion(arr, 0, (jsize)bytes.size(), (const jbyte*)bytes.data());
