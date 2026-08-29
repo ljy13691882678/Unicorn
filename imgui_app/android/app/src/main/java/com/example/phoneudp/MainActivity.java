@@ -60,16 +60,17 @@ public class MainActivity extends Activity {
         Button btnRead = findViewById(R.id.btnReadAndSend);
         Button btnSample = findViewById(R.id.btnSendSample);
         Button btnCmd = findViewById(R.id.btnRootCmd);
+        Button btnCheckDrv = findViewById(R.id.btnCheckDrv);
 
         btnRead.setOnClickListener(v -> readAndSend());
         btnSample.setOnClickListener(v -> sendSample());
         btnCmd.setOnClickListener(v -> runRootCmd());
+        btnCheckDrv.setOnClickListener(v -> checkDriverLink());
 
-        appendLog("已就绪。输入电脑 IP/端口，读取进程内存并发送（单一内核驱动读取）。");
-        checkDriverLink();
+        appendLog("已就绪。输入电脑 IP/端口，点\"读取\"联线内核驱动并发送（单一内核驱动读取）。");
     }
 
-    // 启动后检查内核驱动链接状态并提醒（后台线程，避免阻塞 UI）
+    // 手动检查内核驱动链接状态（仅由按钮触发，启动时不自动联线，避免一进就崩）
     private void checkDriverLink() {
         new Thread(() -> {
             boolean ok;

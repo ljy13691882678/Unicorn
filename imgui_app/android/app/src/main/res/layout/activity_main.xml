@@ -79,6 +79,12 @@
                 android:layout_weight="1"
                 android:text="发送示例" />
             <Button
+                android:id="@+id/btnCheckDrv"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="检查内核驱动" />
+            <Button
                 android:id="@+id/btnRootCmd"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
