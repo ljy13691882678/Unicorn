@@ -187,6 +187,11 @@ static int32_t handleInputEvent(android_app* app, AInputEvent* event) {
 }
 
 void android_main(struct android_app* app) {
+    // 关键：保持 native_app_glue 被链接。它的入口 ANativeActivity_onCreate 只被
+    // Android 运行时按符号调用，代码里无人引用，若不加 app_dummy() 链接器会裁剪该
+    // 静态库成员，导致 NativeActivity 缺少入口，App 一打开就闪退。
+    app_dummy();
+
     app->activity->vm->AttachCurrentThread(&app->activity->env, nullptr);
     gApp = app;
     app->onAppCmd = handleAppCmd;
