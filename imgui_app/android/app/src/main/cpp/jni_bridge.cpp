@@ -70,25 +70,25 @@ static volatile bool gSending = false;
 
 extern "C" {
 
-// 读取进程内存：优先走内核驱动 TimeDriver，不用 root+dd（更隐蔽、不易被反调试打断）。
+// 内核驱动链接状态：返回 true = Init 成功（驱动已连接）；false = 链接失败。
+// Java 侧用于启动时提醒"驱动链接失败 / 成功"。
+JNIEXPORT jboolean JNICALL
+Java_com_example_phoneudp_MainActivity_nativeDriverLink(JNIEnv* env, jobject) {
+    return ensureDriver() ? JNI_TRUE : JNI_FALSE;
+}
+
+// 读取进程内存：始终只走内核驱动 TimeDriver（单一内核读取模式）。
+// 驱动未链接或读取失败时返回 null，Java 侧提示链接/读取失败，不回退 root 读取。
 JNIEXPORT jbyteArray JNICALL
 Java_com_example_phoneudp_MainActivity_nativeRootReadMem(JNIEnv* env, jobject,
                                                          jint pid, jlong addr, jlong len) {
-    std::vector<uint8_t> bytes;
-    if (len > 0) {
-        if (!ensureDriver()) {
-            // 驱动不可用时退回 root 的 dd（保证功能可用，但隐蔽性降低）
-            char cmd[256];
-            snprintf(cmd, sizeof(cmd),
-                     "dd if=/proc/%d/mem bs=1 skip=%lld count=%lld status=none",
-                     (int)pid, (long long)addr, (long long)len);
-            bytes = runRootBytes(cmd);
-        } else {
-            bytes = driverReadMem((pid_t)pid, (uintptr_t)addr, (size_t)len);
-        }
-    }
+    if (!ensureDriver() || len <= 0)
+        return nullptr;                              // 驱动未链接，直接失败
+    std::vector<uint8_t> bytes = driverReadMem((pid_t)pid, (uintptr_t)addr, (size_t)len);
+    if (bytes.empty())
+        return nullptr;                              // 读取失败
     jbyteArray arr = env->NewByteArray((jsize)bytes.size());
-    if (arr && !bytes.empty())
+    if (arr)
         env->SetByteArrayRegion(arr, 0, (jsize)bytes.size(), (const jbyte*)bytes.data());
     return arr;
 }

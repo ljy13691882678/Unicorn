@@ -29,7 +29,9 @@ public class MainActivity extends Activity {
     private Thread sendThread;
 
     // ---- JNI（由 C++ 实现，见 common/ + jni_bridge）----
-    // 通过 root 读取指定进程内存(直接使用 su 执行 dd 从 /proc/PID/mem 读取)
+    // 内核驱动链接状态：true=成功 false=失败（启动时检查并提醒）
+    private native boolean nativeDriverLink();
+    // 通过内核驱动 TimeDriver 读取指定进程内存，读取模式单一（失败返回 null）
     private native byte[] nativeRootReadMem(int pid, long addr, long len);
     // 执行任意 root 命令，返回输出
     private native String nativeRootExec(String cmd);
@@ -63,7 +65,30 @@ public class MainActivity extends Activity {
         btnSample.setOnClickListener(v -> sendSample());
         btnCmd.setOnClickListener(v -> runRootCmd());
 
-        appendLog("已就绪。输入电脑 IP/端口，勾选 root 后读取进程内存并发送。");
+        appendLog("已就绪。输入电脑 IP/端口，读取进程内存并发送（单一内核驱动读取）。");
+        checkDriverLink();
+    }
+
+    // 启动后检查内核驱动链接状态并提醒（后台线程，避免阻塞 UI）
+    private void checkDriverLink() {
+        new Thread(() -> {
+            boolean ok;
+            String msg;
+            try {
+                ok = nativeDriverLink();
+                msg = ok ? "内核驱动 TimeDriver 链接成功，可读取进程内存。" :
+                           "链接失败：内核驱动 TimeDriver 未加载，无法读取进程内存。";
+            } catch (Throwable t) {
+                ok = false;
+                msg = "链接失败：检测驱动时异常 " + t;
+            }
+            final boolean linked = ok;
+            final String text = msg;
+            ui.post(() -> {
+                if (linked) toast("驱动链接成功"); else toast("驱动链接失败");
+                appendLog(text);
+            });
+        }).start();
     }
 
     private void readAndSend() {
@@ -75,12 +100,15 @@ public class MainActivity extends Activity {
             appendLog("需填写有效的 PID / 内存地址 / 长度。");
             return;
         }
-        appendLog("root 读取内存 pid=%d addr=0x%x len=%d ..." .formatted(pid, addr, len));
+        appendLog("驱动读取内存 pid=%d addr=0x%x len=%d ..." .formatted(pid, addr, len));
         new Thread(() -> {
             try {
                 byte[] data = nativeRootReadMem(pid, addr, len);
                 if (data == null || data.length == 0) {
-                    ui.post(() -> appendLog("读取内存失败（无 root 或地址无效）。"));
+                    ui.post(() -> {
+                        appendLog("读取失败：内核驱动未链接或读取失败（单一内核读取，无 root 回退）。");
+                        toast("驱动链接/读取失败");
+                    });
                     return;
                 }
                 appendLog("读取成功 " + data.length + " 字节，开始发送...");
